@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BusinessPlan } from "@/components/tools/BusinessPlan";
 import { SwotAnalysis } from "@/components/tools/SwotAnalysis";
 import { FinancialCalculator } from "@/components/tools/FinancialCalculator";
+import { ExcelAnalysis } from "@/components/tools/ExcelAnalysis";
 
 const Tools = () => {
   return (
@@ -17,10 +18,11 @@ const Tools = () => {
         </div>
 
         <Tabs defaultValue="business-plan" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="business-plan">Business Plan</TabsTrigger>
             <TabsTrigger value="swot">SWOT Analysis</TabsTrigger>
             <TabsTrigger value="financial">Financial Calculator</TabsTrigger>
+            <TabsTrigger value="excel">Excel Analysis</TabsTrigger>
           </TabsList>
 
           <TabsContent value="business-plan">
@@ -33,6 +35,10 @@ const Tools = () => {
 
           <TabsContent value="financial">
             <FinancialCalculator />
+          </TabsContent>
+
+          <TabsContent value="excel">
+            <ExcelAnalysis />
           </TabsContent>
         </Tabs>
       </div>
