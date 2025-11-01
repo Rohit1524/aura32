@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, Bell } from "lucide-react";
+import { Calendar, Clock, Bell, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Scheduler = () => {
   const [meeting, setMeeting] = useState({
@@ -16,22 +17,62 @@ const Scheduler = () => {
     description: "",
     attendees: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Meeting Scheduled!",
-      description: `${meeting.title} has been scheduled for ${meeting.date} at ${meeting.time}`,
-    });
-    setMeeting({
-      title: "",
-      date: "",
-      time: "",
-      duration: "",
-      description: "",
-      attendees: "",
-    });
+    
+    if (!meeting.attendees.trim()) {
+      toast({
+        title: "Error",
+        description: "Please add at least one attendee email",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const attendeeList = meeting.attendees.split(',').map(email => email.trim()).filter(email => email);
+      
+      const { data, error } = await supabase.functions.invoke('send-meeting-email', {
+        body: {
+          title: meeting.title,
+          date: meeting.date,
+          time: meeting.time,
+          duration: meeting.duration,
+          description: meeting.description,
+          attendees: attendeeList,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Meeting Scheduled!",
+        description: `${meeting.title} has been scheduled and invitations sent to ${attendeeList.length} attendee(s)`,
+      });
+
+      setMeeting({
+        title: "",
+        date: "",
+        time: "",
+        duration: "",
+        description: "",
+        attendees: "",
+      });
+    } catch (error: any) {
+      console.error('Error scheduling meeting:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send meeting invitations. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -139,9 +180,18 @@ const Scheduler = () => {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              <Bell className="mr-2 h-4 w-4" />
-              Schedule Meeting
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending Invitations...
+                </>
+              ) : (
+                <>
+                  <Bell className="mr-2 h-4 w-4" />
+                  Schedule Meeting
+                </>
+              )}
             </Button>
           </form>
         </Card>
