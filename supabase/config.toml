@@ -3,6 +3,12 @@ project_id = "dobevdauafowlxrnevbp"
 [functions.send-meeting-email]
 verify_jwt = false
 
+[functions.swot-analysis]
+verify_jwt = false
+
+[functions.market-data]
+verify_jwt = false
+
 [functions.analyze-business-data]
 verify_jwt = false
 

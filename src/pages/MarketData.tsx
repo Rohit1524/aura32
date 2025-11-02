@@ -1,109 +1,119 @@
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const MarketData = () => {
-  // Mock data - in production, this would come from real APIs
-  const commodities = [
-    { name: "Gold", price: 2342.50, change: 1.2, unit: "per oz" },
-    { name: "Silver", price: 27.85, change: -0.8, unit: "per oz" },
-    { name: "Crude Oil", price: 82.45, change: 2.1, unit: "per barrel" },
-    { name: "Natural Gas", price: 3.42, change: -1.5, unit: "per MMBtu" },
-    { name: "Copper", price: 4.12, change: 0.9, unit: "per lb" },
-    { name: "Platinum", price: 995.20, change: 1.7, unit: "per oz" },
-  ];
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
+  const { toast } = useToast();
+  
+  const [commodities, setCommodities] = useState([
+    { name: "Gold", value: "2,350.00", unit: "/oz", change: "+0.4", isPositive: true },
+    { name: "Silver", value: "28.50", unit: "/oz", change: "+1.2", isPositive: true },
+    { name: "Crude Oil", value: "85.50", unit: "/bbl", change: "-0.8", isPositive: false },
+    { name: "Natural Gas", value: "2.45", unit: "/mmbtu", change: "+0.6", isPositive: true },
+  ]);
 
-  const indices = [
-    { name: "S&P 500", value: 5487.23, change: 0.45 },
-    { name: "Dow Jones", value: 42567.89, change: -0.22 },
-    { name: "NASDAQ", value: 17234.56, change: 1.12 },
-    { name: "Russell 2000", value: 2198.45, change: 0.78 },
-  ];
+  const [indices, setIndices] = useState([
+    { name: "S&P 500", value: "5,200.00", change: "+0.5", isPositive: true },
+    { name: "Dow Jones", value: "38,500.00", change: "+0.3", isPositive: true },
+    { name: "NASDAQ", value: "16,200.00", change: "+0.8", isPositive: true },
+    { name: "Russell 2000", value: "2,050.75", change: "+0.2", isPositive: true },
+  ]);
+
+  useEffect(() => {
+    fetchMarketData();
+    // Auto-refresh every 60 seconds
+    const interval = setInterval(fetchMarketData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchMarketData = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.functions.invoke('market-data');
+
+      if (error) throw error;
+
+      if (data.commodities) setCommodities(data.commodities);
+      if (data.indices) setIndices(data.indices);
+      if (data.lastUpdated) {
+        const date = new Date(data.lastUpdated);
+        setLastUpdated(date.toLocaleTimeString());
+      }
+    } catch (error) {
+      console.error('Error fetching market data:', error);
+      toast({
+        title: "Failed to Update",
+        description: "Could not fetch latest market data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen pt-20 pb-8 px-4">
       <div className="container mx-auto max-w-6xl">
-        <div className="mb-8 text-center space-y-4">
-          <h1 className="text-4xl font-bold">Market Data</h1>
-          <p className="text-lg text-muted-foreground">
-            Real-time commodity prices and market indicators
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Market Data</h1>
+            <p className="text-lg text-muted-foreground">
+              Real-time commodity prices and market indices
+            </p>
+            {lastUpdated && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Last updated: {lastUpdated}
+              </p>
+            )}
+          </div>
+          {isLoading && (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          )}
         </div>
 
-        <div className="space-y-8">
-          {/* Commodities */}
+        <div className="grid gap-8">
           <div>
             <h2 className="text-2xl font-semibold mb-4">Commodities</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {commodities.map((item) => (
-                <Card key={item.name} className="p-6">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="text-lg font-semibold">{item.name}</h3>
-                      <p className="text-xs text-muted-foreground">{item.unit}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {commodities.map((commodity) => (
+                <Card key={commodity.name} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{commodity.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold">${commodity.value}</span>
+                      <span className="text-sm text-muted-foreground">{commodity.unit}</span>
                     </div>
-                    {item.change >= 0 ? (
-                      <TrendingUp className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-5 w-5 text-red-500" />
-                    )}
                   </div>
-                  <div className="mt-4">
-                    <p className="text-3xl font-bold">${item.price.toFixed(2)}</p>
-                    <p
-                      className={`text-sm font-semibold mt-1 ${
-                        item.change >= 0 ? "text-green-500" : "text-red-500"
-                      }`}
-                    >
-                      {item.change >= 0 ? "+" : ""}
-                      {item.change.toFixed(2)}%
-                    </p>
+                  <div className={`flex items-center gap-1 ${commodity.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                    {commodity.isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    <span className="font-semibold">{commodity.change}%</span>
                   </div>
                 </Card>
               ))}
             </div>
           </div>
 
-          {/* Market Indices */}
           <div>
             <h2 className="text-2xl font-semibold mb-4">Market Indices</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {indices.map((item) => (
-                <Card key={item.name} className="p-6">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-semibold">{item.name}</h3>
-                    {item.change >= 0 ? (
-                      <TrendingUp className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-5 w-5 text-red-500" />
-                    )}
+              {indices.map((index) => (
+                <Card key={index.name} className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">{index.name}</span>
+                    <span className="text-2xl font-bold">{index.value}</span>
                   </div>
-                  <div className="mt-4">
-                    <p className="text-3xl font-bold">
-                      {item.value.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                    <p
-                      className={`text-sm font-semibold mt-1 ${
-                        item.change >= 0 ? "text-green-500" : "text-red-500"
-                      }`}
-                    >
-                      {item.change >= 0 ? "+" : ""}
-                      {item.change.toFixed(2)}%
-                    </p>
+                  <div className={`flex items-center gap-1 ${index.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                    {index.isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    <span className="font-semibold">{index.change}%</span>
                   </div>
                 </Card>
               ))}
             </div>
           </div>
-
-          <Card className="p-6 bg-muted/30">
-            <p className="text-sm text-muted-foreground text-center">
-              <strong>Note:</strong> This is demonstration data. In a production environment, 
-              data would be sourced from real-time market data APIs.
-            </p>
-          </Card>
         </div>
       </div>
     </div>
