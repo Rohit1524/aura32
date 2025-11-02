@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -11,16 +12,34 @@ serve(async (req) => {
   }
 
   try {
-    const { message } = await req.json();
-    
-    if (!message) {
-      throw new Error('Message is required');
-    }
+    const { message, conversationHistory = [] } = await req.json();
+    console.log('Received message:', message);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+      throw new Error('LOVABLE_API_KEY is not configured');
     }
+
+    const messages = [
+      {
+        role: "system",
+        content: `You are an expert AI Business Assistant with deep knowledge in:
+- Business Strategy & Planning
+- Financial Analysis & Forecasting
+- Market Research & Analysis
+- SWOT Analysis & Competitive Intelligence
+- Sales & Marketing Strategies
+- Operations & Supply Chain Management
+- Human Resources & Organizational Development
+- Digital Transformation & Technology Adoption
+- Risk Management & Compliance
+- Customer Relationship Management
+
+Provide detailed, actionable insights with specific recommendations. Use data-driven approaches and best practices. Format your responses clearly with bullet points, numbered lists, and sections when appropriate.`
+      },
+      ...conversationHistory,
+      { role: "user", content: message }
+    ];
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -30,64 +49,39 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert business consultant and advisor with deep knowledge in:
-- Business planning and strategy
-- Market research and competitive analysis
-- SWOT analysis and business frameworks
-- Financial planning, budgeting, and forecasting
-- Cost analysis and financial statements
-- Funding strategies and investor relations
-- Risk management and mitigation
-- Sales techniques and customer acquisition
-- Branding and brand development
-- Digital marketing and social media strategy
-- HR management and labor law
-- Employee management and organizational development
-- Supply chain management (SCM)
-- Logistics and inventory management
-- Cloud computing and business software
-- Business process automation
-- Corporate social responsibility (CSR)
-- Ethical marketing practices
-- Legal aspects of business
-- Business technology and trends
-
-Provide clear, actionable, and professional advice. Be concise but thorough. Use examples when helpful. Format your responses with clear structure.`
-          },
-          {
-            role: 'user',
-            content: message
-          }
-        ],
+        messages,
+        stream: true,
       }),
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const errorText = await response.text();
-      console.error('AI API Error:', response.status, errorText);
-      throw new Error(`AI API error: ${response.status}`);
+      console.error('AI gateway error:', response.status, errorText);
+      throw new Error('AI gateway error');
     }
 
-    const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
-
-    return new Response(
-      JSON.stringify({ response: aiResponse }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
   } catch (error) {
-    console.error('Error in business-assistant:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+    console.error('Error in business-assistant function:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
+      JSON.stringify({ error: error instanceof Error ? error.message : 'An error occurred' }),
+      { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

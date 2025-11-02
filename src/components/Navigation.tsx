@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
-import auraLogo from "@/assets/aura-logo.jpg";
+import auraLogo from "@/assets/aura-logo.png";
 
 export const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,7 +26,7 @@ export const Navigation = () => {
             <img 
               src={auraLogo} 
               alt="AURA Logo" 
-              className="h-10 w-10 object-contain transition-transform group-hover:scale-110 rounded-lg"
+              className="h-12 w-12 object-contain transition-transform group-hover:scale-110"
             />
             <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               AURA
